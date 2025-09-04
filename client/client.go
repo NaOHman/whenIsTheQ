@@ -10,6 +10,11 @@ import (
 	"time"
 )
 
+const (
+	UPTOWN   string = "Uptown"
+	DOWNTOWN string = "Downtown"
+)
+
 type Stop struct {
 	Id        string     `json:"id"`
 	Name      string     `json:"name"`

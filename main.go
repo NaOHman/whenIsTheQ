@@ -39,10 +39,9 @@ func main() {
 			},
 			{
 				Name:        "next_train",
-				Usage:       "whenistheq next_train --station R17 --line Q --downtown",
+				Usage:       "whenistheq next_train --station R17 --line Q --direction downtown",
 				Description: "Tells you when the next train is",
 				Action:      NextTrain,
-				After:       checkUpDown,
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:     "station",
@@ -58,17 +57,17 @@ func main() {
 						Value:    "",
 						Required: true,
 					},
-					&cli.BoolFlag{
-						Name:    "uptown",
-						Aliases: []string{"u"},
-						Usage:   "get the time of the next uptown train",
-						Value:   false,
+					&cli.StringFlag{
+						Name:    "destination",
+						Aliases: []string{"D"},
+						Usage:   "The destination of the line to query",
+						Value:   "",
 					},
-					&cli.BoolFlag{
-						Name:    "downtown",
+					&cli.StringFlag{
+						Name:    "direction",
 						Aliases: []string{"d"},
-						Usage:   "get the time of the next downtown train",
-						Value:   false,
+						Usage:   "The direction of the train (Manhattan, Outbound, Uptown, Downtown, etc)",
+						Value:   "",
 					},
 					&cli.BoolFlag{
 						Name:  "diff",
@@ -87,11 +86,11 @@ func main() {
 
 func NextTrain(_ context.Context, c *cli.Command) error {
 	tClient := client.NewClient(c.String("addr"), c.String("system"))
-	direction := client.UPTOWN
-	if c.Bool("downtown") {
-		direction = client.DOWNTOWN
+	lineSelector, err := makeLineSelector(tClient, c)
+	if err != nil {
+		return err
 	}
-	departure, err := tClient.GetNextDeparture(c.String("station"), c.String("line"), direction)
+	departure, err := tClient.GetNextDeparture(c.String("station"), lineSelector)
 	if err != nil {
 		return err
 	}
@@ -122,9 +121,26 @@ func StationLookup(_ context.Context, c *cli.Command) error {
 	return nil
 }
 
-func checkUpDown(_ context.Context, c *cli.Command) error {
-	if c.Bool("uptown") == c.Bool("downtown") {
-		return fmt.Errorf("must specify exactly one of -uptown or -downtown")
+func makeLineSelector(tClient *client.Client, c *cli.Command) (*client.LineSelector, error) {
+	line := c.String("line")
+	if line == "" {
+		return nil, fmt.Errorf("--line is required")
 	}
-	return nil
+	selector := &client.LineSelector{
+		Line: line,
+	}
+	if (c.String("destination") == "") == (c.String("direction") == "") {
+		return nil, fmt.Errorf("must set exactly one of --direction, --destination")
+	}
+	if dir := c.String("direction"); dir != "" {
+		selector.Direction = &client.HeadsignMatcher{Headsign: dir}
+	}
+	if dest := c.String("destination"); dest != "" {
+		stop, err := tClient.GetStop(dest)
+		if err != nil {
+			return nil, err
+		}
+		selector.Direction = client.NewStationMatcher(stop)
+	}
+	return selector, nil
 }

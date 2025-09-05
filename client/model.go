@@ -8,29 +8,38 @@ import (
 	"time"
 )
 
-const (
-	UPTOWN   string = "Uptown"
-	DOWNTOWN string = "Downtown"
-)
-
 type Stop struct {
 	Id          string       `json:"id"`
 	Name        string       `json:"name"`
 	StopTimes   []StopTime   `json:"stopTimes"`
-	ServiceMaps []ServiceMap `json:"serviceMaps`
+	ServiceMaps []ServiceMap `json:"serviceMaps"`
+	ChildStops  []ChildStop  `json:"childStops"`
+}
+
+type ChildStop struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
 }
 
 type StopTime struct {
-	Arrival   SubwayTime `json:"arrival"`
-	Departure SubwayTime `json:"departure"`
-	Future    bool       `json:"future"`
-	Headsign  string     `json:"headsign"`
-	Trip      Trip       `json:"trip"`
+	Arrival     SubwayTime  `json:"arrival"`
+	Departure   SubwayTime  `json:"departure"`
+	Future      bool        `json:"future"`
+	Headsign    string      `json:"headsign"`
+	Trip        Trip        `json:"trip"`
+	Destination Destination `json:"destination"`
 }
 
 type Trip struct {
-	Id    string `json:"id"`
-	Route Route  `json:"route"`
+	Id          string      `json:"id"`
+	Route       Route       `json:"route"`
+	Destination Destination `json:"destination"`
+	DirectionId bool        `json:"directionId"`
+}
+
+type Destination struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
 }
 
 type SubwayTime struct {

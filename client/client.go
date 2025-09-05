@@ -66,24 +66,14 @@ func (c *Client) FindStationCode(stationName string) ([]Stop, error) {
 	return matchingStops, nil
 }
 
-func (c *Client) GetNextDeparture(station, line, direction string) (time.Time, error) {
+func (c *Client) GetNextDeparture(station string, line *LineSelector) (time.Time, error) {
 	nextDeparture := time.Time{}
-	url, err := url.JoinPath(c.addr, "systems", c.system, "stops", station)
+	stop, err := c.GetStop(station)
 	if err != nil {
 		return nextDeparture, err
 	}
-	stop := &Stop{}
-	if err := fetchUrl(url, stop); err != nil {
-		return nextDeparture, err
-	}
 	for _, stopTime := range stop.StopTimes {
-		if !stopTime.Future {
-			continue
-		}
-		if stopTime.Trip.Route.Id != line {
-			continue
-		}
-		if stopTime.Headsign != direction {
+		if !stopTime.Future || !line.Matches(stopTime) {
 			continue
 		}
 		if nextDeparture.IsZero() || nextDeparture.After(stopTime.Arrival.Time) {
@@ -91,9 +81,19 @@ func (c *Client) GetNextDeparture(station, line, direction string) (time.Time, e
 		}
 	}
 	if nextDeparture.IsZero() {
-		return nextDeparture, fmt.Errorf("could not find any %s %s trains at station %s", direction, line, station)
+		return nextDeparture, fmt.Errorf("could not find any %s trains at station %s", line.String(), stop.Name)
 	}
 	return nextDeparture, nil
+}
+
+func (c *Client) GetStop(stationId string) (*Stop, error) {
+	url, err := url.JoinPath(c.addr, "systems", c.system, "stops", stationId)
+	if err != nil {
+		return nil, err
+	}
+	stop := &Stop{}
+	err = fetchUrl(url, stop)
+	return stop, err
 }
 
 func fetchUrl(url string, obj any) error {

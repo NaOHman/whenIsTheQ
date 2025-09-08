@@ -2,6 +2,7 @@ package client
 
 import (
 	"encoding/json"
+	"image/color"
 	"maps"
 	"slices"
 	"strconv"
@@ -47,8 +48,8 @@ type SubwayTime struct {
 }
 
 type Route struct {
-	Id    string `json:"id"`
-	Color string `json:"color"`
+	Id       string `json:"id"`
+	ColorStr string `json:"color"`
 }
 
 type StopsResponse struct {
@@ -58,6 +59,23 @@ type StopsResponse struct {
 
 type ServiceMap struct {
 	Routes []Route `json:"routes"`
+}
+
+func (s *Route) Color() color.RGBA {
+	if len(s.ColorStr) != 6 {
+		return color.RGBA{}
+	}
+	return color.RGBA{
+		R: parseHexUint8(s.ColorStr[0:2]),
+		G: parseHexUint8(s.ColorStr[2:4]),
+		B: parseHexUint8(s.ColorStr[4:6]),
+		A: 255,
+	}
+}
+
+func parseHexUint8(s string) uint8 {
+	a, _ := strconv.ParseUint(s, 16, 8)
+	return uint8(a)
 }
 
 func (s *Stop) Lines() []string {

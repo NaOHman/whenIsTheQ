@@ -96,6 +96,16 @@ func (c *Client) GetStop(stationId string) (*Stop, error) {
 	return stop, err
 }
 
+func (c *Client) GetLine(line string) (*Route, error) {
+	url, err := url.JoinPath(c.addr, "systems", c.system, "routes", line)
+	if err != nil {
+		return nil, err
+	}
+	route := &Route{}
+	err = fetchUrl(url, route)
+	return route, err
+}
+
 func fetchUrl(url string, obj any) error {
 	res, err := http.Get(url)
 	if err != nil {

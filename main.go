@@ -3,13 +3,22 @@ package main
 import (
 	"context"
 	"fmt"
+	"image"
+	"image/color"
+	"image/draw"
+	"image/png"
+	"math"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/golang/freetype/truetype"
 	"github.com/naohman/whenistheq/client"
 	"github.com/rodaine/table"
 	"github.com/urfave/cli/v3"
+	"golang.org/x/image/font"
+	"golang.org/x/image/font/gofont/goregular"
+	"golang.org/x/image/math/fixed"
 )
 
 func main() {
@@ -73,6 +82,28 @@ func main() {
 						Name:  "diff",
 						Usage: "print the duration remaining to the next train instead of the absolute",
 						Value: false,
+					},
+				},
+			},
+			{
+				Name:        "icon",
+				Description: "Print a PNG icon for an MTA subway line",
+				Usage:       "whenistheq icon --line Q --output q.png",
+				Action:      Icon,
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:     "line",
+						Aliases:  []string{"l"},
+						Usage:    "the subway line to query",
+						Value:    "",
+						Required: true,
+					},
+					&cli.StringFlag{
+						Name:     "output",
+						Aliases:  []string{"o"},
+						Usage:    "the file to write the icon to",
+						Value:    "",
+						Required: true,
 					},
 				},
 			},
@@ -143,4 +174,58 @@ func makeLineSelector(tClient *client.Client, c *cli.Command) (*client.LineSelec
 		selector.Direction = client.NewStationMatcher(stop)
 	}
 	return selector, nil
+}
+
+func Icon(_ context.Context, c *cli.Command) error {
+	tClient := client.NewClient(c.String("addr"), c.String("system"))
+	route, err := tClient.GetLine(c.String("line"))
+	if err != nil {
+		return err
+	}
+	size := 64
+	img := image.NewRGBA(image.Rect(0, 0, size, size))
+	radius := size / 2
+	drawCircle(img, radius, radius, radius, route.Color())
+
+	goFont, err := truetype.Parse(goregular.TTF)
+	if err != nil {
+		panic(err)
+	}
+	drawer := &font.Drawer{
+		Dst: img,
+		Src: image.NewUniform(color.White),
+		Face: truetype.NewFace(goFont, &truetype.Options{
+			Size:    40,
+			DPI:     72,
+			Hinting: font.HintingFull,
+		}),
+	}
+	width := drawer.MeasureString(route.Id)
+	wordStart := radius - (width.Ceil() / 2)
+	drawer.Dot = fixed.Point26_6{
+		X: fixed.I(wordStart),
+		Y: fixed.I(44),
+	}
+	drawer.DrawString(route.Id)
+
+	f, err := os.OpenFile(c.String("output"), os.O_CREATE|os.O_RDWR, 0644)
+	if err != nil {
+		return err
+	}
+	png.Encode(f, img)
+	return nil
+}
+
+func drawCircle(img draw.Image, x0, y0, r int, c color.RGBA) {
+	for x := x0 - r; x <= x0+r; x++ {
+		dx2 := (x - x0) * (x - x0)
+		for y := y0 - r; y <= y0+r; y++ {
+			dy2 := (y - y0) * (y - y0)
+			dist := math.Sqrt(float64(dx2 + dy2))
+
+			if int(dist) < r {
+				img.Set(x, y, c)
+			}
+		}
+	}
 }
